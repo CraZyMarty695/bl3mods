@@ -11,10 +11,16 @@ base-game anointments.)
 This *does* exclude The Shoddy, since it seems quite fitting that that
 gun wouldn't have anointments on it.
 
-Should be up to date with DLC6 (Director's Cut).
+Should be up to date with Vault Card 3.
 
 Changelog
 =========
+
+**v1.3.2** - Nov 19, 2021
+ * Removed Linc, Leech, and Sellout because those have been officially
+   patched to have anointments in the base game data.  That data patch was
+   also causing crashes for Linc and Leech (but weirdly, not Sellout),
+   so this release takes care of that, too.
 
 **v1.3.1** - Aug 14, 2021
  * Added purple Seventh Sense variant, since that's actually been available

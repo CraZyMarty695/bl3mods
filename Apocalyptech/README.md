@@ -32,6 +32,8 @@ of the mods you'll find in here, though:
 - **Infinite Slide** - Makes the duration of your character's slide effectively
   infinite.
 - **Movement Speed Cheats** - Move faster!
+- **No Hidden Eridium** - Alters the Eridium spawns which require Mysterious
+  Amulet to just be normal Eridium clusters/jars instead.
 - **NVHM Gamestage Follows Level** - Makes the game follow your
   character level in Normal/PT1/NVHM, as it does during TVHM and Mayhem.
 - **Unlock DLC3 Tech** - Unlocks Coresploders, Traitorweed, and Telezappers
@@ -132,6 +134,8 @@ of the mods you'll find in here, though:
 - **Arms Race Cheat** - A mod to make Arms Race completely trivial.
 - **Droughts Chest Moves** - Moves white+red chests in The Droughts to near the
   Highway fast travel station, used for testing out some chest-related mods.
+- **Droughts Quick Change at Highway Fast Travel** - Moves the Quick Change machine
+  in The Droughs to near the Highway fast travel.
 - **Equal Character Gear Chance** - Makes character-specific gear equally likely
   to spawn over all characters, instead of being weighted towards current players.
 - **Fast Levelling** - A collection of mods to provide increased XP acquisition.

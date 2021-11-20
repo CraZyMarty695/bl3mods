@@ -1,6 +1,6 @@
 ###
 ### Name: Amara 2.0
-### Version: 4.0.2
+### Version: 4.0.3
 ### Author: CZ47
 ### Contact: =]#7647
 ### Categories: char-siren, char-overhaul, gear-com
@@ -60,10 +60,10 @@ SparkPatchEntry,(1,2,0,),/Game/PlayerCharacters/_Shared/_Design/Balance/Siren/Da
 
 # Buffing Forceful Expression Bonus 18% > 40% and making it apply to everything
 SparkPatchEntry,(1,2,0,),/Game/PlayerCharacters/_Shared/_Design/Balance/Siren/DataTable_Siren_SimpleFormulas.DataTable_Siren_SimpleFormulas,Channeler_BonusDamage,Multiplier,0,,(BaseValueConstant=0.4,DataTableValue=(DataTable=None,RowName="",ValueName=""))
-SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/ManifestTree/Empowered/ConditionalDamage_SirenEmpowered_Corrosive.ConditionalDamage_SirenEmpowered_Corrosive,ConditionalDamage_SirenEmpowered_Corrosive,DamageSourceFilter,0,,
-SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/ManifestTree/Empowered/ConditionalDamage_SirenEmpowered_Cryo.ConditionalDamage_SirenEmpowered_Cryo,ConditionalDamage_SirenEmpowered_Cryo,DamageSourceFilter,0,,
-SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/ManifestTree/Empowered/ConditionalDamage_SirenEmpowered_Incendiary.ConditionalDamage_SirenEmpowered_Incendiary,ConditionalDamage_SirenEmpowered_Incendiary,DamageSourceFilter,0,,
-SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/ManifestTree/Empowered/ConditionalDamage_SirenEmpowered_Shock.ConditionalDamage_SirenEmpowered_Shock,ConditionalDamage_SirenEmpowered_Shock,DamageSourceFilter,0,,
+SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/ManifestTree/Empowered/ConditionalDamage_SirenEmpowered_Corrosive.ConditionalDamage_SirenEmpowered_Corrosive,DamageSourceFilter,0,,
+SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/ManifestTree/Empowered/ConditionalDamage_SirenEmpowered_Cryo.ConditionalDamage_SirenEmpowered_Cryo,DamageSourceFilter,0,,
+SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/ManifestTree/Empowered/ConditionalDamage_SirenEmpowered_Incendiary.ConditionalDamage_SirenEmpowered_Incendiary,DamageSourceFilter,0,,
+SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/ManifestTree/Empowered/ConditionalDamage_SirenEmpowered_Shock.ConditionalDamage_SirenEmpowered_Shock,DamageSourceFilter,0,,
 
 
 
@@ -72,6 +72,9 @@ SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Pas
 # Fixing Samsara Missing Health% to Max Health%
 SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/BrawlTree/Samsara/StatusEffect_Siren_Samsara.StatusEffect_Siren_Samsara,AttributeEffects.AttributeEffects[1].AttributeData,0,,/Game/GameData/Attributes/Health/Att_HealthPassivePercentRegenerationRate.Att_HealthPassivePercentRegenerationRate
 SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/BrawlTree/Samsara/PassiveSkill_Siren_Samsara.Default__PassiveSkill_Siren_Samsara_C:StatDataItems_UIStatData_OakPassiveAbilityAttribute_0,Attribute,0,,/Game/GameData/Attributes/Health/Att_HealthPassivePercentRegenerationRate.Att_HealthPassivePercentRegenerationRate
+
+# Deep well currently only Provides -15% Heat per Shot instead of -20%, this fixes that.
+SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/ManifestTree/DeepWell/StatusEffect_Siren_DeepWell.StatusEffect_Siren_DeepWell,AttributeEffects.AttributeEffects[1].Mutator.Object..PerGradeUpgrade,0,,(DataTableValue=(DataTable=Datatable'"/Game/PlayerCharacters/_Shared/_Design/Balance/_Shared/DataTable_Shared_PassiveSkillBalance.DataTable_Shared_PassiveSkillBalance"',RowName="Accuracy_Impulse",ValueName="FivePointLarge_23_BD95FA214ED4F962354446B3B30B08AD"))
 
 # Fixing Tempest Shock 40% > 50%
 SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_Shared/_Design/Passives/ManifestTree/Tempest/StatusEffect_Siren_Tempest_DA.StatusEffect_Siren_Tempest_DA,AttributeEffects.AttributeEffects[1].Mutator.Object..PerGradeUpgrade,,0,(DataTableValue=(DataTable=DataTable'"/Game/PlayerCharacters/_Shared/_Design/Balance/_Shared/DataTable_Shared_PassiveSkillBalance.DataTable_Shared_PassiveSkillBalance"',RowName="ElementalEffect_Damage",ValueName="FivePointMedium_21_6CE8CC0645575BFC0483689FFA697E8A"))
@@ -240,9 +243,6 @@ SparkPatchEntry,(1,2,0,),/Game/PlayerCharacters/SirenBrawler/_DLC/Ixora/Phasetra
 # Decrease Shooting Star cooldown
 SparkPatchEntry,(1,2,0,),/Game/PlayerCharacters/SirenBrawler/_DLC/Ixora/Phasetrance/Defs/Table_PhasetranceCoefficients_DLC.Table_PhasetranceCoefficients_DLC,DLCAttack7,CooldownCoefficient_4_F654EB144A946CD7D29756AF24FC67B8,0,,32.0
 
-
-# Reverting Expedite to its pre-patch state (the augment works, but Ascendant doesn't do anything for it yet)
-SparkPatchEntry,(1,1,0,),/Game/PlayerCharacters/SirenBrawler/_DLC/Ixora/Phasetrance/StatusEffects/StatusEffect_Siren_Quicken.StatusEffect_Siren_Quicken,AttributeEffects.AttributeEffects[0].BaseModifierValue,0,,(BaseValueConstant=0.0,DataTableValue=(DataTable=DataTable'"/Game/PlayerCharacters/SirenBrawler/_DLC/Ixora/Passives/Table_Siren_DLCPassiveConstantValues.Table_Siren_DLCPassiveConstantValues"',RowName="Quicken_CooldownRatePerKill",ValueName="Base_17_28B25EC8493D1EB6C2138A962F659BCD"),BaseValueAttribute=None,AttributeInitializer=None,BaseValueScale=1.0)
 
 # Removing penalties from augments
 SparkPatchEntry,(1,2,0,),/Game/PlayerCharacters/_Shared/_Design/Balance/Siren/DataTable_Siren_PhasetranceCoefficients.DataTable_Siren_PhasetranceCoefficients,Effect_Inevitable,DamageCoefficient_2_70FF0AD64324CB4406E965B6AFF3BED8,0,,0

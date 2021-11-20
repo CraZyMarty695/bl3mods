@@ -30,6 +30,228 @@
 import os
 import sys
 import gzip
+import string
+
+class _StreamingBlueprintPosition:
+    """
+    Class to hold positioning information for objects created with type-11
+    hotfixes.  These statements have to be delayed, and it's probably good
+    practice to "bunch them up," so to speak, so it'll be nice to have a
+    way to store that information temporarily while building the mod.
+    """
+
+    def __init__(self, obj_name, location, rotation, scale):
+        self.obj_name = obj_name
+        self.location = location
+        self.rotation = rotation
+        self.scale = scale
+
+    def do_positioning(self, mod, map_name):
+        if not mod.quiet_streaming:
+            mod.comment('Doing repositioning for {} in {}'.format(
+                self.obj_name.split('.')[-2],
+                map_name,
+                ))
+        mod.reg_hotfix(Mod.EARLYLEVEL, map_name,
+                self.obj_name,
+                'RelativeLocation',
+                '(X={:.6f},Y={:.6f},Z={:.6f})'.format(*self.location),
+                notify=True)
+        mod.reg_hotfix(Mod.EARLYLEVEL, map_name,
+                self.obj_name,
+                'RelativeRotation',
+                '(Pitch={:.6f},Yaw={:.6f},Roll={:.6f})'.format(*self.rotation),
+                notify=True)
+        mod.reg_hotfix(Mod.EARLYLEVEL, map_name,
+                self.obj_name,
+                'RelativeScale3D',
+                '(X={:.6f},Y={:.6f},Z={:.6f})'.format(*self.scale),
+                notify=True)
+
+class _StreamingBlueprintHelper:
+    """
+    A class to provide some support for dealing with type-11 hotfixes (Streaming
+    Blueprint).
+
+    Its primary purpose is to help "delay" the hotfix processing long enough for
+    the new object to exist, so that the subsequent positioning hotfixes have an
+    object reference to work with.
+
+    Each instance of this object is tied to a specific level, and the class can
+    also be used to "queue up" the post-injection positioning hotixes within a
+    level, in case you're injecting more than one.
+
+    NOTE: The timing we're using here is pretty dependent on loading meshes that do
+    *not* exist in the level already, so any edits to the map which have already
+    loaded these meshes prior to trying this delay will interfere with the process.
+    """
+
+    # TODO: Should probably *not* specify a default here.  Just have a known list, and
+    # raise an exception if we don't know what the var should be.
+    # These positioning object names are *not* at all exhaustive!  Objects
+    # that we *do* know should work fine, though:
+    #  - /Alisma/Lootables/_Design/Classes/Hyperion/BPIO_Ali_Lootable_Hyperion_RedChest
+    #  - /Dandelion/Lootables/_Design/Classes/Hyperion/BPIO_Lootable_Hyperion_RedChest
+    #  - /Game/InteractiveObjects/AtlasDefenseTurret/_Shared/_Design/IO_AtlasDefenseTurret
+    #  - /Game/InteractiveObjects/GameSystemMachines/CatchARide/_Shared/Blueprints/BP_CatchARide_Console
+    #  - /Game/InteractiveObjects/GameSystemMachines/CatchARide/_Shared/Blueprints/BP_CatchARide_Platform
+    #  - /Game/InteractiveObjects/GameSystemMachines/QuickChange/BP_QuickChange
+    #  - /Game/InteractiveObjects/GameSystemMachines/VendingMachine/_Shared/Blueprints/BP_VendingMachine_Ammo
+    #  - /Game/InteractiveObjects/GameSystemMachines/VendingMachine/_Shared/Blueprints/BP_VendingMachine_CrazyEarl
+    #  - /Game/InteractiveObjects/GameSystemMachines/VendingMachine/_Shared/Blueprints/BP_VendingMachine_Health
+    #  - /Game/InteractiveObjects/GameSystemMachines/VendingMachine/_Shared/Blueprints/BP_VendingMachine_Weapons
+    #  - /Game/InteractiveObjects/SlotMachine/_Shared/_Design/BPIO_SlotMachine_ClapTrap
+    #  - /Game/InteractiveObjects/SlotMachine/_Shared/_Design/BPIO_SlotMachine_HiJinx
+    #  - /Game/InteractiveObjects/SlotMachine/_Shared/_Design/BPIO_SlotMachine_LootBoxer
+    #  - /Game/InteractiveObjects/SlotMachine/_Shared/_Design/BPIO_SlotMachine_VaultLine
+    #  - /Game/InteractiveObjects/StationaryMannedTurret/IO_GroundTurret
+    #  - /Game/InteractiveObjects/Switches/Circuit_Breaker/_Design/IO_Switch_Circuit_Breaker_V1
+    #  - /Game/InteractiveObjects/Switches/Lever/Design/IO_Switch_Industrial_Prison
+    #  - /Game/Lootables/_Design/Classes/Atlas/BPIO_Lootable_Atlas_RedChest
+    #  - /Game/Lootables/_Design/Classes/CoV/BPIO_Lootable_COV_RedCrate
+    #  - /Game/Lootables/_Design/Classes/CoV/BPIO_Lootable_COV_RedCrate_Slaughter
+    #  - /Game/Lootables/_Design/Classes/Eridian/BPIO_Lootable_Eridian_RedChest
+    #  - /Game/Lootables/_Design/Classes/Eridian/BPIO_Lootable_Eridian_WhiteChest
+    #  - /Game/Lootables/_Design/Classes/Eridian/BPIO_Lootable_Eridian_WhiteChestCrystal
+    #  - /Game/Lootables/_Design/Classes/Global/BPIO_Lootable_Global_WhiteCrate
+    #  - /Game/Lootables/_Design/Classes/Jakobs/BPIO_Lootable_Jakobs_RedChest
+    #  - /Game/Lootables/_Design/Classes/Jakobs/BPIO_Lootable_Jakobs_WhiteChest
+    #  - /Game/Lootables/_Design/Classes/Maliwan/BPIO_Lootable_Maliwan_RedChest
+    #  - /Game/Lootables/_Design/Classes/Maliwan/BPIO_Lootable_Maliwan_RedChest_Slaughter
+    #  - /Game/Lootables/_Design/Classes/Maliwan/BPIO_Lootable_Maliwan_WhiteChest
+    #  - /Game/PatchDLC/Event2/Lootables/_Design/BPIO_Lootable_Jakobs_WhiteChest_Cartels
+    #  - /Game/PatchDLC/Ixora2/InteractiveObjects/GameSystemMachines/VendingMachine/_Shared/BP_VendingMachine_BlackMarket
+    #  - /Geranium/InteractiveObjects/GameSystemMachines/CatchARide/_Shared/Blueprints/BP_CatchARide_Console_Ger
+    #  - /Hibiscus/InteractiveObjects/Lootables/_Design/Classes/Cultists/BPIO_Hib_Lootable_Cultist_RedChest
+    #  - /Hibiscus/InteractiveObjects/Lootables/_Design/Classes/Cultists/BPIO_Hib_Lootable_Cultist_WhiteChest
+    #  - /Hibiscus/InteractiveObjects/Lootables/_Design/Classes/FrostBiters/BPIO_Hib_Lootable_FrostBiters_RedChest
+    #  - /Hibiscus/InteractiveObjects/Lootables/_Design/Classes/FrostBiters/BPIO_Hib_Lootable_FrostBiters_WhiteChest
+    #  - /Hibiscus/InteractiveObjects/Systems/CatchARide/_Design/BP_Hib_CatchARide_Console
+    #  - /Hibiscus/InteractiveObjects/Systems/CatchARide/_Design/BP_Hib_CatchARide_Platform
+    positioning_obj_default = 'RootComponent'
+    positioning_obj_names = {
+            '/alisma/lootables/_design/classes/hyperion/bpio_ali_lootable_hyperion_redchest': 'Mesh_Chest1',
+            '/dandelion/lootables/_design/classes/hyperion/bpio_lootable_hyperion_redchest': 'Mesh_Chest1',
+            '/game/interactiveobjects/atlasdefenseturret/_shared/_design/io_atlasdefenseturret': 'DefaultSceneRoot',
+            '/game/interactiveobjects/gamesystemmachines/catcharide/_shared/blueprints/bp_catcharide_platform': 'PlatformMesh',
+            '/game/interactiveobjects/slotmachine/_shared/_design/bpio_slotmachine_claptrap': 'Cabinet',
+            '/game/interactiveobjects/slotmachine/_shared/_design/bpio_slotmachine_hijinx': 'Cabinet',
+            '/game/interactiveobjects/slotmachine/_shared/_design/bpio_slotmachine_lootboxer': 'Cabinet',
+            '/game/interactiveobjects/slotmachine/_shared/_design/bpio_slotmachine_vaultline': 'Cabinet',
+            '/game/interactiveobjects/stationarymannedturret/io_groundturret': 'SK_MannedTurret',
+            '/game/interactiveobjects/switches/circuit_breaker/_design/io_switch_circuit_breaker_v1': 'DefaultSceneRoot',
+            '/game/interactiveobjects/switches/lever/design/io_switch_industrial_prison': 'DefaultSceneRoot',
+            '/game/lootables/_design/classes/atlas/bpio_lootable_atlas_redchest': 'Mesh_Chest1',
+            '/game/lootables/_design/classes/cov/bpio_lootable_cov_redcrate': 'Mesh_Chest1',
+            '/game/lootables/_design/classes/cov/bpio_lootable_cov_redcrate_slaughter': 'Mesh_Chest1',
+            '/game/lootables/_design/classes/eridian/bpio_lootable_eridian_redchest': 'Mesh_Chest1',
+            '/game/lootables/_design/classes/eridian/bpio_lootable_eridian_whitechest': 'Mesh_Chest1',
+            '/game/lootables/_design/classes/eridian/bpio_lootable_eridian_whitechestcrystal': 'Mesh_Chest1',
+            '/game/lootables/_design/classes/global/bpio_lootable_global_whitecrate': 'Mesh_Chest1',
+            '/game/lootables/_design/classes/jakobs/bpio_lootable_jakobs_redchest': 'Mesh_Chest1',
+            '/game/lootables/_design/classes/jakobs/bpio_lootable_jakobs_whitechest': 'Mesh_Chest1',
+            '/game/lootables/_design/classes/maliwan/bpio_lootable_maliwan_redchest': 'Mesh_Chest1',
+            '/game/lootables/_design/classes/maliwan/bpio_lootable_maliwan_redchest_slaughter': 'Mesh_Chest1',
+            '/game/lootables/_design/classes/maliwan/bpio_lootable_maliwan_whitechest': 'Mesh_Chest1',
+            '/game/patchdlc/event2/lootables/_design/bpio_lootable_jakobs_whitechest_cartels': 'Mesh_Chest1',
+            '/hibiscus/interactiveobjects/lootables/_design/classes/cultists/bpio_hib_lootable_cultist_redchest': 'Mesh_Chest1',
+            '/hibiscus/interactiveobjects/lootables/_design/classes/cultists/bpio_hib_lootable_cultist_whitechest': 'Mesh_Chest1',
+            '/hibiscus/interactiveobjects/lootables/_design/classes/cultists/bpio_hib_lootable_portalchest': 'Mesh_Chest1',
+            '/hibiscus/interactiveobjects/lootables/_design/classes/frostbiters/bpio_hib_lootable_frostbiters_redchest': 'Mesh_Chest1',
+            '/hibiscus/interactiveobjects/lootables/_design/classes/frostbiters/bpio_hib_lootable_frostbiters_whitechest': 'Mesh_Chest1',
+            '/hibiscus/interactiveobjects/systems/catcharide/_design/bp_hib_catcharide_platform': 'PlatformMesh',
+            }
+
+    used_sm_letters_by_map = {
+            'atlashq_p': set(['A', 'B', 'F', 'I', 'K', 'L', 'N', 'O', 'Q', 'S']),
+            'bar_p': set(['A', 'C', 'D', 'E', 'G', 'H', 'L', 'N', 'O', 'R', 'S', 'U', 'V']),
+            'cityvault_p': set(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'W', 'Y']),
+            'covslaughter_p': set(['C', 'O', 'V']),
+            'creatureslaughter_p': set(['C', 'O', 'V']),
+            'desert_p': set(['A', 'B', 'C', 'D', 'E', 'G', 'I', 'L', 'M', 'N', 'O', 'P', 'S', 'T', 'W']),
+            'finalboss_p': set(['B', 'M', 'N', 'O', 'T', 'W']),
+            'mansion_p': set(['A', 'E', 'M', 'T']),
+            'marshfields_p': set(['A', 'C', 'E', 'K', 'L', 'T']),
+            'motorcade_p': set(['B', 'C', 'E', 'I', 'J', 'K', 'L', 'N', 'R', 'W']),
+            'motorcadefestival_p': set(['A', 'B', 'C', 'D', 'E', 'G', 'I', 'K', 'L', 'N', 'O', 'S', 'T']),
+            'motorcadeinterior_p': set(['C', 'E', 'L', 'M', 'O', 'W']),
+            'prologue_p': set(['A', 'C', 'E', 'G', 'I', 'K', 'L', 'O', 'P', 'R', 'S', 'T', 'Y']),
+            'sanctuary3_p': set(['A', 'C', 'E', 'I', 'L', 'M', 'N', 'O', 'P', 'R', 'T', 'X', 'Z']),
+            'strip_p': set(['J', 'K', 'M', 'O', 'P', 'R', 'S', 'T', 'W']),
+            'towers_p': set(['A', 'C', 'D', 'E', 'F', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'R', 'S', 'T', 'U', 'V', 'W', 'Y']),
+            'trashtown_p': set(['A', 'H', 'I', 'L', 'N', 'R', 'S', 'T']),
+            'wetlands_p': set(['A', 'E', 'G', 'L', 'M', 'O', 'S', 'T']),
+            'woods_p': set(['H', 'M', 'S', 'U']),
+            }
+
+    def __init__(self, mod, map_name):
+        self.map_name = map_name
+        self.mod = mod
+        self.positions = []
+        self.obj_next_indicies = {}
+        to_lower = map_name.lower()
+        if to_lower == 'MatchAll':
+            raise RuntimeError('MatchAll is not a valid level target for delaying streaming blueprint hotfixes')
+        self.avail_meshes = []
+        for letter in string.ascii_uppercase:
+            if to_lower in self.used_sm_letters_by_map and letter in self.used_sm_letters_by_map[to_lower]:
+                continue
+            self.avail_meshes.append(f'/Game/LevelArt/Environments/_Global/Letters/Meshes/SM_Letter_{letter}')
+        # Use 'em in order
+        self.avail_meshes.reverse()
+
+    def get_next_index(self, obj_name, index=None):
+        obj_name_lower = obj_name.lower()
+        if index is None:
+            if obj_name_lower in self.obj_next_indicies:
+                index = self.obj_next_indicies[obj_name_lower]
+            else:
+                index = 0
+        self.obj_next_indicies[obj_name_lower] = index + 1
+        return index
+
+    def consume(self, count=2):
+        if count > len(self.avail_meshes):
+            raise RuntimeError('Not enough free meshes to properly delay hotfix execution!')
+        for _ in range(count):
+            yield self.avail_meshes.pop()
+
+    def add_positioning(self, *args):
+        self.positions.append(_StreamingBlueprintPosition(*args))
+
+    def get_positioning_obj(self, obj_name):
+        obj_name_lower = obj_name.lower()
+        if obj_name_lower in self.positioning_obj_names:
+            return self.positioning_obj_names[obj_name_lower]
+        else:
+            return self.positioning_obj_default
+
+    def finish(self, count=2):
+        if self.positions:
+            if not self.mod.quiet_streaming:
+                self.mod.comment('Injecting an artificial delay before proceeding with positioning of streamed Blueprints in {}'.format(
+                    self.map_name,
+                    ))
+
+            # First the delay
+            for mesh_name in self.consume(count):
+                self.mod.reg_hotfix(Mod.EARLYLEVEL, self.map_name,
+                        '/Game/Gear/Game/Resonator/_Design/BP_Eridian_Resonator.Default__BP_Eridian_Resonator_C',
+                        'StaticMeshComponent.Object..StaticMesh',
+                        self.mod.get_full_cond(mesh_name, 'StaticMesh'))
+            # Revert it right away; no sense waiting for it.
+            self.mod.reg_hotfix(Mod.EARLYLEVEL, self.map_name,
+                    '/Game/Gear/Game/Resonator/_Design/BP_Eridian_Resonator.Default__BP_Eridian_Resonator_C',
+                    'StaticMeshComponent.Object..StaticMesh',
+                    self.mod.get_full_cond('/Game/Gear/Game/Resonator/Model/Meshes/SM_Eridian_Resonator', 'StaticMesh'))
+
+            # And now the individual repositioning
+            for pos in self.positions:
+                pos.do_positioning(self.mod, self.map_name)
+
+            # Now clear out the list of positions and end with a newline
+            self.positions = []
+            self.mod.newline()
 
 class Mod(object):
     """
@@ -101,7 +323,8 @@ class Mod(object):
             v=None, lic=None, cats=None,
             ss=None, videos=None, urls=None, nexus=None,
             contact=None, contact_email=None, contact_url=None, contact_discord=None,
-            quiet_meshes=False,
+            quiet_meshes=False, quiet_streaming=False,
+            aggressive_streaming=True,
             ):
         """
         Initializes ourselves and starts writing the mod.
@@ -124,7 +347,7 @@ class Mod(object):
         `contact_url` - Contact URL
         `contact_discord` - Contact Discord info
 
-        And then, some extra control parameters (just the one for now, actually):
+        And then, some extra control parameters:
 
         `quiet_meshes` - This library can do StaticMesh injection, to allow
             meshes to be used in any level, even if they're not ordinarily allowed
@@ -133,6 +356,19 @@ class Mod(object):
             automatically added.  Setting `quiet_meshes` to `True` will suppress
             those comments (though the necessary hotfixes will still be written,
             of course).  See `_ensure_mesh()` for some info on this.
+        `quiet_streaming` - Likewise, this library can do Streaming Blueprint
+            injection, which also requires some extra injected hotfixes to work
+            properly.  Setting this to `True` will suppress warnings/notices
+            about this, including to the console while generating.
+        `aggressive_streaming` - This library has helper code to aggressively
+            help out with handling Streaming Blueprint (type 11) hotfixes which
+            are really better handled in mod-injection software like B3HM or
+            Apoc's mitmproxy-based hfinject.py.  Support for this is present in
+            hfinject.py, and is forthcoming in B3HM.  For now, if using B3HM,
+            leave `aggressive_streaming` at its default of `True`, and if using
+            hfinject.py, set it to `False` instead.  (Though is should be noted
+            that there's not really any downside to always leaving it on, apart
+            from some wasted hotfixes.)
         """
         self.filename = filename
         self.title = title
@@ -152,6 +388,12 @@ class Mod(object):
         self.last_was_newline = True
         self.ensured_meshes = {}
         self.quiet_meshes = quiet_meshes
+        self.quiet_streaming = quiet_streaming
+        self.aggressive_streaming = aggressive_streaming
+
+        # Some vars to help out with type-11 (streaming blueprint) hotfixes
+        self.seen_streaming_warning = quiet_streaming
+        self.streaming_helpers = {}
 
         self.source = os.path.basename(sys.argv[0])
 
@@ -451,7 +693,7 @@ class Mod(object):
             notify=False,
             ensure=False):
         """
-        Writes out a SpawnMesh-altering hotfix to the mod file.
+        Writes out a SpawnMesh addition hotfix to the mod file.
 
         `map_path` is the full path to the "main" `_P` map where this is being put
         `mesh_path` is the full path to the mesh to be added
@@ -519,6 +761,143 @@ class Mod(object):
             transparent_flag=transparent_flag,
             ), file=self.df)
 
+    def streaming_hotfix(self, map_path, obj_path,
+            index=None,
+            location=(0,0,0),
+            rotation=(0,0,0),
+            scale=(1,1,1),
+            notify=False,
+            finish=False,
+            positioning_obj=None,
+            ):
+        """
+        Writes out a Blueprint Stream/addition hotfix to the mod file.
+
+        `map_path` is the full path to the "main" `_P` map where this is being put
+        `obj_path` is the full path to the object to be added
+        `index` is the expected numerical index of the added blueprint object;
+            this is needed because the actual type-11 hotfix ignores location/rotation/scale,
+            so we need to inject more hotfixes after the fact to move the new object
+            around, and need to know the path to the object in order to do so.  It appears
+            that indexes will start at 0, even "bumping up" hardcoded in-map objects.  Note
+            that this implies that mods which add the same type of object to the same map
+            will end up conflicting with each other, since you'll have no way of knowing
+            how they're ordered in users' mod lists.  If this is left as `None`, this
+            library will start numbering at 0 automatically.
+        `location`, `rotation`, and `scale` define the physical parameters of the object
+        `notify` can be used to set the "notify" flag on hotfixes.  This doesn't
+            seem like it's ever necessary, so best to leave it alone.
+        `finish` only has an effect when the Mod-level `aggressive_streaming` param is
+            set to `True`.  `finish` can be set to `False` in those cases to avoid
+            "finishing" the injection immediately; the delaying StaticMesh hotfixes and
+            the positioning hotfixes won't be written out right away.  They'll be written
+            at the end of the mod instead (or when another `streaming_hotfix` call is made
+            with the value set to `True`)
+        `positioning_obj` can be set, to specify the subobject used to actually position the
+            injected object in the world.  If not specified, this will use a small hardcoded
+            mapping to see if we know what the object name is, defaulting to `RootComponent`
+            if not (which is what's used for objects like vending machines).
+
+        Returns the full object name of what we believe the created object should be.
+
+        NOTE: These are finnicky, and these may not be reliable at the moment.
+        """
+
+        if not self.seen_streaming_warning:
+            self.seen_streaming_warning = True
+            print("WARNING: Blueprint Stream hotfixes (type 11) are rather finnicky, and often")
+            print("don't seem to work how you'd hope them to.  The position/rotation/scaling")
+            print("changes in particular often seem to not actually 'take', leaving your added")
+            print("object at the origin point (0,0,0).  Mods using this type may not be reliable.")
+            print("")
+            self.comment('WARNING: type-11 hotfixes (and associated positioning params) may not work right...')
+
+        # Map path
+        map_first, map_last = map_path.rsplit('/', 1)
+
+        # Object path
+        obj_first, obj_last = obj_path.rsplit('/', 1)
+
+        # Notify flag
+        if notify:
+            notification_flag=1
+        else:
+            notification_flag=0
+
+        # Coordinates/transforms - these values are actually ignored by type-11 hotfixes, so
+        # we're just putting in the defaults, to make that more obvious to anyone looking
+        # at the mod file
+        coord_parts = []
+        for coords in [(0,0,0), (0,0,0), (1,1,1)]:
+            coord_parts.append(','.join([
+                '{:.6f}'.format(n) for n in coords
+                ]))
+        coord_field = '|'.join(coord_parts)
+
+        # First the hotfix to add it to the map
+        print('{hf_type},(1,11,{notification_flag},{map_last}),{map_first},{obj_first},{obj_last},{coord_len},"{coord_field}"'.format(
+            hf_type=Mod.TYPE[Mod.EARLYLEVEL],
+            notification_flag=notification_flag,
+            map_first=map_first,
+            map_last=map_last,
+            obj_first=obj_first,
+            obj_last=obj_last,
+            coord_len=len(coord_field),
+            coord_field=coord_field,
+            ), file=self.df)
+
+        # Get our _StreamingBlueprintHelper (or create a new one)
+        map_lower = map_last.lower()
+        if map_lower not in self.streaming_helpers:
+            self.streaming_helpers[map_lower] = _StreamingBlueprintHelper(self, map_last)
+        helper = self.streaming_helpers[map_lower]
+
+        # Figure out what our actual object names are likely to be
+        direct_obj = '{}.{}:PersistentLevel.{}_C_{}'.format(
+                map_path,
+                map_last,
+                obj_last,
+                helper.get_next_index(obj_path, index),
+                )
+        if positioning_obj is None:
+            root_obj = '{}.{}'.format(direct_obj, helper.get_positioning_obj(obj_path))
+        else:
+            root_obj = '{}.{}'.format(direct_obj, positioning_obj)
+
+        # If we're in "aggressive streaming" mode, queue up positions and check for
+        # the `finish` arg.  Otherwise just position right away.
+        if self.aggressive_streaming:
+            # Add our positioning info to the helper
+            helper.add_positioning(root_obj, location, rotation, scale)
+
+            # If we've been told to "finish" the hotfix (ie: delay a bit, and then do
+            # our positioning hotfixes), do so now.
+            if finish:
+                helper.finish()
+        else:
+            pos = _StreamingBlueprintPosition(root_obj, location, rotation, scale)
+            pos.do_positioning(self, map_last)
+
+        # And return the main object's name
+        return direct_obj
+
+    def finish_streaming(self):
+        """
+        Only has an effect when the Mod-level attr `aggressive_streaming` is
+        `True`.  In those cases, used to explicitly "finish" our Streaming
+        Blueprint hotfix statements, so that their object names can be used in
+        other hotfixes.  This is also triggered on a per-level basis by
+        specifying the `finish` argument to `streaming_hotfix()`, or
+        automatically when the modfile is closed, but this is another way to
+        call it.
+        """
+
+        if self.aggressive_streaming:
+            for helper in self.streaming_helpers.values():
+                helper.finish()
+            if not self.last_was_newline:
+                self.newline()
+
     def close(self):
         """
         Closes us out
@@ -531,6 +910,9 @@ class Mod(object):
         self._reset_meshes()
         if not self.last_was_newline:
             self.newline()
+
+        # See if we have any streaming blueprint (type 11) hotfixes to finish
+        self.finish_streaming()
 
         # Now close out and report
         self.df.close()
