@@ -1,8 +1,8 @@
 ###
-###  Key Eridium Fabricator
-### Version: 1.0.0
+### Name: Key Eridium Fabricator
+### Version: 1.1.0
 ### Author: CraZy Marty 695
-### Contact: CraZy Marty 695#7819
+### Contact (Discord): CraZy Marty 695#7819
 ### Categories: cheat, joke, loot-sources
 ###
 ### License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
@@ -12,7 +12,7 @@
 ###
 ### Based off of Apocalyptech's Eridium Fabricator mod 
 ### 
-### This makes the Standard Fire of the Eridian Fabricator shoot four projectiles that are a mix
+### This makes the Standard Fire of the Eridian Fabricator shoot five projectiles that are a mix
 ### of Diamond Keys, Fallen Heros Keys (Vault Card 1), Welcome to Pandora Keys (Vault Card 2), Bunker Masters Keys (Vault Card 3) and Money
 ### Shots cost 1 Eridium
 ###
@@ -20,7 +20,7 @@
 ### a shotgun blast of 8 Eridium Stacks.
 ### Shots are 0 cost
 ###
-### The keys all have a value of 100 and the eridium stack has a value of 10,000,000 (80,000,000 in one blast) 
+### The keys all have a value of 10000 and the eridium stack has a value of 10,000,000 (80,000,000 in one blast) 
 ### The Keys are auto-pickup and shared with everyone in the lobby
 ### The Money is multplied by 500 
 ###
